@@ -4,7 +4,7 @@ defmodule OmpluseBackend.Campaign do
 
   schema "campaigns" do
     field :name, :string
-    field :status, Ecto.Enum, values: [:draft, :running, :completed, :failed], default: :draft
+    field :status, :string, default: "draft"
     belongs_to :user, OmpluseBackend.User
     belongs_to :entity, OmpluseBackend.DltEntity
     belongs_to :sender, OmpluseBackend.Sender

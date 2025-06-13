@@ -121,39 +121,93 @@ defmodule OmpluseBackendWeb.DltController do
   end
 
   # Sender
-  def create_sender(conn, %{"sender" => sender_params}) do
-    case Guardian.Plug.current_resource(conn) do
-      nil ->
+
+  def create_sender(conn, params) do
+    sender_params =
+      case params do
+        %{"Sender" => sender_params} -> sender_params
+        %{"sender_id" => _} = params -> params
+        _ -> %{}
+      end
+      IO.inspect(params, label: "Params in DltController")
+      IO.inspect(sender_params, label: "Sender Params in DltController")
+
+    letter_of_authorization =
+      case params["letter_of_authorization_url"] do
+        %Plug.Upload{path: path, filename: filename} ->
+          unique_filename = "#{System.os_time(:millisecond)}_#{filename}"
+          upload_dir = Path.join([:code.priv_dir(:ompluse_backend), "uploads"])
+          File.mkdir_p!(upload_dir)
+          dest_path = Path.join(upload_dir, unique_filename)
+
+          case File.cp(path, dest_path) do
+            :ok -> "/uploads/#{unique_filename}"
+            {:error, reason} -> {:error, "Failed to upload file: #{reason}"}
+          end
+
+        nil ->
+          nil
+
+        _ ->
+          {:error, "Invalid file upload"}
+      end
+
+    case letter_of_authorization do
+      {:error, error} ->
         conn
-        |> put_status(:unauthorized)
-        |> json(%{error: "Unauthorized: No user logged in"})
+        |> put_status(:bad_request)
+        |> json(%{error: error})
 
-      user ->
-        IO.inspect(user, label: "Current User in DltController")
-        case DltManager.create_sender(user, sender_params) do
-          {:ok, sender} ->
-            conn
-            |> put_status(:created)
-            |> json(%{
-              data: %{
-                id: sender.id,
-                sender_id: sender.sender_id,
-                desc: sender.desc,
-                status: sender.status,
-                entity_id: sender.entity_id,
-                approved_by: sender.approved_by,
-                approved_on: sender.approved_on,
-                inserted_at: sender.inserted_at
-              }
-            })
+      upload_path ->
+        sender_params =
+          if upload_path,
+            do: Map.put(sender_params, "letter_of_authorization_url", upload_path),
+            else: sender_params
 
-          {:error, changeset} ->
+        case Guardian.Plug.current_resource(conn) do
+          nil ->
             conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{errors: changeset.errors})
+            |> put_status(:unauthorized)
+            |> json(%{error: "Unauthorized: No user logged in"})
+
+          user ->
+            IO.inspect(user, label: "Current User in DltController")
+            # IO.inspect(sender_params, label: "Sender Params in DltController")
+
+            try do
+              case DltManager.create_sender(user, sender_params) do
+                {:ok, sender} ->
+                  conn
+                  |> put_status(:created)
+                  |> json(%{
+                    data: %{
+                      id: sender.id,
+                      sender_id: sender.sender_id,
+                      desc: sender.desc,
+                      status: sender.status,
+                      entity_id: sender.entity_id,
+                      approved_by: sender.approved_by,
+                      approved_on: sender.approved_on,
+                      letter_of_authorization_url: sender.letter_of_authorization_url,
+                      inserted_at: sender.inserted_at
+                    }
+                  })
+
+                {:error, changeset} ->
+                  conn
+                  |> put_status(:unprocessable_entity)
+                  |> json(%{errors: Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)})
+              end
+            rescue
+              e in Ecto.CastError ->
+                conn
+                |> put_status(:bad_request)
+                |> json(%{error: "Invalid parameters: #{Exception.message(e)}"})
+            end
         end
     end
   end
+
 
   def list_senders(conn, _params) do
     case Guardian.Plug.current_resource(conn) do
@@ -203,9 +257,9 @@ defmodule OmpluseBackendWeb.DltController do
                 template_content: template.template_content,
                 template_type: template.template_type,
                 template_status: template.template_status,
-                dlt_template_id: template.dlt_template_id,
                 entity_id: template.entity_id,
                 sender_id: template.sender_id,
+                template_id: template.template_id,
                 inserted_at: template.inserted_at
               }
             })
@@ -236,9 +290,9 @@ defmodule OmpluseBackendWeb.DltController do
               template_content: template.template_content,
               template_type: template.template_type,
               template_status: template.template_status,
-              dlt_template_id: template.dlt_template_id,
               entity_id: template.entity_id,
               sender_id: template.sender_id,
+              template_id: template.template_id,
               inserted_at: template.inserted_at
             }
           end)

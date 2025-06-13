@@ -8,7 +8,7 @@ defmodule OmpluseBackend.Repo.Migrations.CreateTemplates do
       add :template_content, :text, null: false
       add :template_type, :string, null: false
       add :template_status, :string, default: "pending"
-      add :dlt_template_id, :string
+      add :template_id, :string
       timestamps()
     end
 

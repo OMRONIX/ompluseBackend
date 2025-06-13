@@ -1,5 +1,6 @@
 defmodule OmpluseBackend.DltManager do
   import Ecto.Query
+  alias OmpluseBackend.Campaign
   alias OmpluseBackend.Repo
   alias OmpluseBackend.{DltEntity, Sender, Template}
 
@@ -18,12 +19,11 @@ defmodule OmpluseBackend.DltManager do
   end
 
   # Sender
-  def create_sender(user, attrs) do
-    with {:ok, entity} <- get_approved_entity(user.id, attrs["entity_id"]) do
-      %Sender{}
-      |> Sender.changeset(Map.merge(attrs, %{entity_id: entity.id}))
-      |> Repo.insert()
-    end
+def create_sender(_user, params) do
+    IO.inspect(params, label: "Params in DltManager.create_sender")
+    %Sender{}
+    |> Sender.changeset(params)
+    |> Repo.insert()
   end
 
   def list_senders(user_id) do
@@ -34,14 +34,11 @@ defmodule OmpluseBackend.DltManager do
   end
 
   #template
-  def create_template(user, attrs) do
-    with {:ok, entity} <- get_approved_entity(user.id, attrs["entity_id"]),
-          {:ok, sender} <- get_approved_sender(entity, attrs["sender_id"]) do
+  def create_template(_user, params) do
       %Template{}
-      |> Template.changeset(Map.merge(attrs, %{entity_id: entity.id, sender_id: sender.id}))
+      |> Template.changeset(params)
       |> Repo.insert()
     end
-  end
 
   def list_templates(user_id) do
     Template
@@ -52,31 +49,29 @@ defmodule OmpluseBackend.DltManager do
   end
 
   #campaign
-  def create_campaign(user, attrs) do
-    with {:ok, entity} <- get_approved_entity(user.id, attrs["entity_id"]),
-          {:ok, sender} <- get_approved_sender(entity, attrs["sender_id"]),
-          {:ok, template} <- Repo.get(Template, attrs["template_id"]) do
-      %OmpluseBackend.Campaign{}
-      |> OmpluseBackend.Campaign.changeset(Map.merge(attrs, %{
-        user_id: user.id,
-        entity_id: entity.id,
-        sender_id: sender.id,
-        template_id: template.id
-      }))
-      |> Repo.insert()
+  def create_campaign(user, params) do
+    # with {:ok, entity} <- get_approved_entity(user.id, attrs["entity_id"]),
+    #       {:ok, sender} <- get_approved_sender(entity, attrs["sender_id"]),
+    #       {:ok, template} <- Repo.get(Template, attrs["template_id"]) do
+    params = Map.put(params, "user_id", user.id)
+    %Campaign{}
+    |> Campaign.changeset(params)
+    |> Repo.insert()
     end
-  end
+  # end
 
-  def list_campaigns(user_id) do
-    OmpluseBackend.Campaign
-    |> where([c, e, s, t], e.user_id == ^user_id)
-    |> Repo.all()
-  end
+def list_campaigns(user_id) do
+  Campaign
+  |> join(:inner, [c], e in DltEntity, on: c.entity_id == e.id) # Adjust join as per schema
+  |> where([c, e], e.user_id == ^user_id)
+  |> Repo.all()
+end
+
 
   defp get_approved_entity(user_id, entity_id) do
     entity = Repo.get(DltEntity, entity_id)
 
-    if entity && entity.user_id == user_id && entity.status == :approved do
+    if entity && entity.user_id == user_id && entity.verification_status == :approved do
       {:ok, entity}
     else
       {:error, "Entity not found or not approved"}
@@ -102,6 +97,5 @@ defmodule OmpluseBackend.DltManager do
       {:error, "Template not found or not approved"}
     end
   end
-
 
 end
