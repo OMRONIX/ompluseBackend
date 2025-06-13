@@ -19,7 +19,7 @@ defmodule OmpluseBackendWeb.DltController do
       case params["letter_of_authorization_url"] do
         %Plug.Upload{path: path, filename: filename} ->
           unique_filename = "#{System.os_time(:millisecond)}_#{filename}"
-          upload_dir = Path.join([:code.priv_dir(:ompluse_backend), "uploads"])
+          upload_dir = Path.join(["priv/static/uploads"])
           File.mkdir_p!(upload_dir)
           dest_path = Path.join(upload_dir, unique_filename)
 
@@ -136,7 +136,7 @@ defmodule OmpluseBackendWeb.DltController do
       case params["letter_of_authorization_url"] do
         %Plug.Upload{path: path, filename: filename} ->
           unique_filename = "#{System.os_time(:millisecond)}_#{filename}"
-          upload_dir = Path.join([:code.priv_dir(:ompluse_backend), "uploads"])
+          upload_dir = Path.join(["priv/static/uploads/sender"])
           File.mkdir_p!(upload_dir)
           dest_path = Path.join(upload_dir, unique_filename)
 
