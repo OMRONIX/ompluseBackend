@@ -52,7 +52,20 @@ defmodule OmpluseBackendWeb.Router do
     pipe_through [:api, :auth]
 
     get "/dashboard", DashboardController, :index
+
+    post "/dlt/entities", DltController, :create_entity
+    get "/dlt/entities", DltController, :list_entities
+
+    post "/dlt/senders", DltController, :create_sender
+    get "/dlt/senders", DltController, :list_senders
+
+    post "/dlt/templates", DltController, :create_template
+    get "/dlt/templates", DltController, :list_templates
+
+    post "/dlt/campaigns", DltController, :create_campaign
+    get "/dlt/campaigns", DltController, :list_campaigns
   end
+
 
   # Company-specific routes
   scope "/api/companies/:company_id", OmpluseBackendWeb do

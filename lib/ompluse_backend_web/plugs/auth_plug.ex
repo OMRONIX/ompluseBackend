@@ -7,7 +7,7 @@ defmodule OmpluseBackendWeb.Plugs.AuthPlug do
   def call(conn, _opts) do
     resource = Guardian.Plug.current_resource(conn)
     company_id = String.to_integer(conn.params["company_id"])
-    IO.inspect({company_id, resource}, label: "AuthPlug Check")
+    # IO.inspect({company_id, resource}, label: "AuthPlug Check")
     case resource do
       nil ->
         send_unauthorized(conn)

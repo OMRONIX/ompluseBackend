@@ -8,14 +8,14 @@ defmodule OmpluseBackendWeb.AuthGuardian do
   def subject_for_token(_, _), do: {:error, :invalid_resource}
 
   # Retrieve resource from claims
-  def resource_from_claims(%{"sub" => id} = claims) do
-    IO.inspect(claims, label: "Guardian Claims")
-    IO.inspect(id, label: "Subject ID")
+  def resource_from_claims(%{"sub" => id} = _claims) do
+    # IO.inspect(claims, label: "Guardian Claims")
+    # IO.inspect(id, label: "Subject ID")
 
     user = Auth.get_user(id)
     company = Auth.get_company(id)
 
-    IO.inspect({user, company}, label: "Resource Lookup")
+    # IO.inspect({user, company}, label: "Resource Lookup")
 
     case user || company do
       nil ->
@@ -23,7 +23,7 @@ defmodule OmpluseBackendWeb.AuthGuardian do
         {:error, :resource_not_found}
 
       resource ->
-        IO.inspect(resource, label: "Found Resource")
+        # IO.inspect(resource, label: "Found Resource")
         {:ok, resource}
     end
   end

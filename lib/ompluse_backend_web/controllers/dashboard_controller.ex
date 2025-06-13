@@ -5,8 +5,8 @@ defmodule OmpluseBackendWeb.DashboardController do
   alias OmpluseBackend.Company
 def index(conn, _params) do
   resource = Guardian.Plug.current_resource(conn)
-  token = Guardian.Plug.current_token(conn)
-  IO.inspect({token, resource}, label: "Dashboard Auth Check")
+  # token = Guardian.Plug.current_token(conn)
+  # IO.inspect({token, resource}, label: "Dashboard Auth Check")
   case resource do
     nil ->
       conn
