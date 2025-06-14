@@ -1,6 +1,6 @@
 defmodule OmpluseBackendWeb.AuthController do
   use OmpluseBackendWeb, :controller
-  alias OmpluseBackend.Auth
+  alias OmpluseBackend.{Auth, Repo, User, Company}
   alias Pbkdf2
   alias OmpluseBackendWeb.AuthGuardian
 
@@ -32,6 +32,57 @@ defmodule OmpluseBackendWeb.AuthController do
         conn
         |> put_resp_content_type("application/json")
         |> send_resp(401, Jason.encode!(%{error: "Invalid credentials"}))
+    end
+  end
+
+  def request_password_reset(conn, %{"user_name" => user_name}) do
+    IO.inspect("Requesting password reset for user_name: #{user_name}")
+    resource = Repo.get_by(User, user_name: user_name) || Repo.get_by(Company, company_name: user_name)
+    IO.inspect("Resource in reset password: #{inspect(resource)}")
+
+    case resource do
+      nil ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(404, Jason.encode!(%{error: "User name not found"}))
+
+      resource ->
+        case Auth.generate_password_reset_token(resource) do
+          {:ok, _resource, token} ->
+            Auth.send_password_reset_email(resource, token)
+            conn
+            |> put_resp_content_type("application/json")
+            |> send_resp(200, Jason.encode!(%{message: "Password reset email sent", token: token}))
+
+          {:error, changeset} ->
+            conn
+            |> put_resp_content_type("application/json")
+            |> send_resp(422, Jason.encode!(%{errors: changeset_errors(changeset)}))
+        end
+    end
+  end
+
+  def reset_password(conn, %{"user_name" => user_name, "token" => token, "new_password" => new_password}) do
+    case Auth.reset_password(user_name, token, new_password) do
+      {:ok, _resource} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(200, Jason.encode!(%{message: "Password reset successfully"}))
+
+      {:error, :invalid_token} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(401, Jason.encode!(%{error: "Invalid or missing token"}))
+
+      {:error, :token_expired} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(401, Jason.encode!(%{error: "Token expired"}))
+
+      {:error, changeset} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(422, Jason.encode!(%{errors: changeset_errors(changeset)}))
     end
   end
 

@@ -45,6 +45,8 @@ defmodule OmpluseBackendWeb.Router do
     post "/login", AuthController, :login
     post "/company/register", CompanyController, :register
     post "/company/login", CompanyController, :login
+    post "/password/reset", AuthController, :request_password_reset
+    post "/password/reset/confirm", AuthController, :reset_password
   end
 
   # Protected routes requiring authentication

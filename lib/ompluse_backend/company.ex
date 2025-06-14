@@ -13,6 +13,8 @@ defmodule OmpluseBackend.Company do
     field :business_type, :string
     field :website_url, :string
     field :password_hash, :string
+    field :reset_password_token, :string
+    field :reset_password_expires_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
   end
