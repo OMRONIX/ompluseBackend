@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: ompluse_backend
+    env: elixir
+    ...
+    buildCommand: mix deps.get && mix compile
+    startCommand: mix phx.server
+    preDeployCommand: mix ecto.migrate
