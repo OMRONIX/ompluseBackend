@@ -12,7 +12,7 @@ defmodule OmpluseBackend.Repo.Migrations.CreateTemplates do
       timestamps()
     end
 
-    create unique_index(:templates, [:dlt_template_id])
+    create unique_index(:templates, [:template_id])
 
   end
 end
