@@ -18,5 +18,6 @@ defmodule OmpluseBackend.Sender do
     |> cast(attrs, [:sender_id, :desc, :status, :approved_by, :approved_on, :entity_id,  :letter_of_authorization_url])
     |> validate_required([:sender_id, :entity_id])
     |> validate_length(:sender_id, is: 6)
+    |> validate_format(:sender_id, ~r/^[A-Z0-9]{6}$/, message: "must be a 6 character alphanumeric string")
   end
 end

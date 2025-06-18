@@ -2,7 +2,7 @@ defmodule OmpluseBackend.DltManager do
   import Ecto.Query
   alias OmpluseBackend.Campaign
   alias OmpluseBackend.Repo
-  alias OmpluseBackend.{DltEntity, Sender, Template}
+  alias OmpluseBackend.{DltEntity, Sender, Template, Group, GroupContact}
 
   #DLT Entity
   def create_entity(_user, attrs) do
@@ -66,6 +66,40 @@ def list_campaigns(user_id) do
   |> where([c, e], e.user_id == ^user_id)
   |> Repo.all()
 end
+
+def create_group(user, params) do
+    attrs = %{
+      name: params["name"],
+      user_id: if(user.__struct__ == OmpluseBackend.User, do: user.id, else: nil),
+      company_id: if(user.__struct__ == OmpluseBackend.Company, do: user.id, else: nil)
+    }
+
+    %Group{}
+    |> Group.changeset(attrs)
+    |> Repo.insert()
+  end
+def create_group_contact(user, attrs) do
+  attrs = Map.put(attrs, "user_id", user.id)
+
+  %GroupContact{}
+  |> GroupContact.changeset(attrs)
+  |> Repo.insert()
+end
+
+
+   def get_groups(user) do
+    case user do
+      %OmpluseBackend.User{id: user_id} ->
+        Repo.all(from g in Group, where: g.user_id == ^user_id)
+      %OmpluseBackend.Company{id: company_id} ->
+        Repo.all(from g in Group, where: g.company_id == ^company_id)
+    end
+  end
+
+  def get_group_contacts(group_id) do
+    Repo.all(from gc in GroupContact, where: gc.group_id == ^group_id, select: [:phone_number, :name])
+  end
+
 
 
   defp get_approved_entity(user_id, entity_id) do

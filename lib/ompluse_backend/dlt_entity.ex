@@ -18,5 +18,6 @@ defmodule OmpluseBackend.DltEntity do
     |> cast(attrs, [:ueid, :entity_name, :letter_of_authorization_url, :entity_type, :verification_status, :telecom_operator, :user_id])
     |> validate_required([:ueid, :entity_type, :user_id])
     |> unique_constraint(:ueid)
+    |> validate_format(:ueid, ~r/^\d{19}$/, message: "must be a 9 digit")
   end
 end

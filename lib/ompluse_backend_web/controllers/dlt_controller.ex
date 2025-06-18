@@ -317,6 +317,8 @@ defmodule OmpluseBackendWeb.DltController do
             |> json(%{
               data: %{
                 id: campaign.id,
+                desc: campaign.desc,
+                campaign_id: campaign.campaign_id,
                 name: campaign.name,
                 status: campaign.status,
                 entity_id: campaign.entity_id,
@@ -353,6 +355,8 @@ defmodule OmpluseBackendWeb.DltController do
               status: campaign.status,
               entity_id: campaign.entity_id,
               sender_id: campaign.sender_id,
+              campaign_id: campaign.campaign_id,
+              desc: campaign.desc,
               template_id: campaign.template_id,
               inserted_at: campaign.inserted_at
             }
@@ -360,4 +364,103 @@ defmodule OmpluseBackendWeb.DltController do
         })
     end
   end
+
+   def create_group(conn, %{"group" => group_params}) do
+    case Guardian.Plug.current_resource(conn) do
+      nil ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Unauthorized: No user logged in"})
+
+      user ->
+        case DltManager.create_group(user, group_params) do
+          {:ok, group} ->
+            conn
+            |> put_status(:created)
+            |> json(%{
+              data: %{
+                id: group.id,
+                name: group.name,
+                user_id: group.user_id,
+                company_id: group.company_id,
+                inserted_at: group.inserted_at
+              }
+            })
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)})
+        end
+    end
+  end
+
+  def list_groups(conn, _params) do
+    case Guardian.Plug.current_resource(conn) do
+      nil ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Unauthorized: No user logged in"})
+
+      user ->
+        groups = DltManager.get_groups(user)
+        conn
+        |> json(%{
+          data: Enum.map(groups, fn group ->
+            %{
+              id: group.id,
+              name: group.name,
+              user_id: group.user_id,
+              company_id: group.company_id,
+              inserted_at: group.inserted_at
+            }
+          end)
+        })
+    end
+  end
+
+   def create_group_contacts(conn, %{"group_contact" => group_contact_params}) do
+    case Guardian.Plug.current_resource(conn) do
+      nil ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Unauthorized: No user logged in"})
+
+      user ->
+        case DltManager.create_group_contact(user, group_contact_params) do
+          {:ok, group_contact} ->
+            conn
+            |> put_status(:created)
+            |> json(%{
+              data: %{
+                phone_number: group_contact.phone_number,
+                name: group_contact.name,
+                group: group_contact.group_id,
+                inserted_at: group_contact.inserted_at
+              }
+            })
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{errors: Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)})
+        end
+    end
+  end
+
+  def get_group_contacts(conn, %{"group_id" => group_id}) do
+    contacts = DltManager.get_group_contacts(group_id)
+    conn
+    |> json(%{
+      data: Enum.map(contacts, fn contact ->
+        %{
+          phone_number: contact.phone_number,
+          name: contact.name,
+          inserted_at: contact.inserted_at
+        }
+      end)
+    })
+  end
+
+
 end

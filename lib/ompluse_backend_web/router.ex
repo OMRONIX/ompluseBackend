@@ -66,6 +66,12 @@ defmodule OmpluseBackendWeb.Router do
 
     post "/dlt/campaigns", DltController, :create_campaign
     get "/dlt/campaigns", DltController, :list_campaigns
+
+    post "/group", DltController, :create_group
+    get "/group", DltController, :list_groups
+
+    post "/group/contact", DltController, :create_group_contacts
+    get "/group/contact/:group_id", DltController, :get_group_contacts
   end
 
 

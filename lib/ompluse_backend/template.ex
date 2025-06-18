@@ -17,5 +17,6 @@ defmodule OmpluseBackend.Template do
     |> cast(attrs, [:template_content, :template_type, :template_status,  :entity_id, :sender_id, :template_id])
     |> validate_required([:template_content, :template_type, :entity_id, :sender_id, :template_id])
     |> unique_constraint(:template_id)
+    |> validate_format(:template_id, ~r/^\d{19}$/, message: "must be a 9 digit")
   end
 end
