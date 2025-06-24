@@ -74,6 +74,12 @@ defmodule OmpluseBackendWeb.Router do
     get "/group/contact/:group_id", DltController, :get_group_contacts
   end
 
+  scope "/api/dlt", OmpluseBackendWeb do
+    pipe_through [:api, :auth]
+
+    post "/sms", DltController, :create_sms
+  end
+
 
   # Company-specific routes
   scope "/api/companies/:company_id", OmpluseBackendWeb do

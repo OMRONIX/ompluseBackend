@@ -462,5 +462,46 @@ defmodule OmpluseBackendWeb.DltController do
     })
   end
 
+  def create_sms(conn, %{"sms" => sms_params}) do
+  case Guardian.Plug.current_resource(conn) do
+    nil ->
+      conn
+      |> put_status(:unauthorized)
+      |> json(%{error: "Unauthorized: No user logged in"})
+
+    user ->
+      case DltManager.process_sms_submission(user, sms_params) do
+        {:ok, sms_records} ->
+          conn
+          |> put_status(:created)
+          |> json(%{
+            data: Enum.map(sms_records, fn sms ->
+              %{
+                id: sms.id,
+                uuid: sms.uuid,
+                user_id: sms.user_id,
+                seq_id: sms.seq_id,
+                entity_id: sms.entity_id,
+                sender_id: sms.sender_id,
+                template_id: sms.template_id,
+                gateway_id: sms.gateway_id,
+                dlr_status: sms.dlr_status,
+                submit_ts: sms.submit_ts,
+                message: sms.message,
+                phone_number: sms.phone_number,
+                telco_id: sms.telco_id,
+                inserted_at: sms.inserted_at
+              }
+            end)
+          })
+
+        {:error, errors} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{errors: errors})
+      end
+  end
+end
+
 
 end

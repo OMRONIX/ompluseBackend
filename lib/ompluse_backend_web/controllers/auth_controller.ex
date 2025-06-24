@@ -88,13 +88,13 @@ defmodule OmpluseBackendWeb.AuthController do
 
 
 
-  defp get_authenticated_resource(conn) do
-    case Guardian.Plug.current_resource(conn) do
-      %User{} = user -> {:ok, user}
-      %Company{} = company -> {:ok, company}
-      nil -> {:error, :unauthenticated}
-    end
-  end
+  # defp get_authenticated_resource(conn) do
+  #   case Guardian.Plug.current_resource(conn) do
+  #     %User{} = user -> {:ok, user}
+  #     %Company{} = company -> {:ok, company}
+  #     nil -> {:error, :unauthenticated}
+  #   end
+  # end
 
   defp changeset_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
