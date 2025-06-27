@@ -40,7 +40,7 @@ defmodule OmpluseBackendWeb.Endpoint do
 
   plug CORSPlug,
   origin: ["http://localhost:3000"],  # your Next.js dev server
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "OPTIONS","PUT", "DELETE"],
   headers: ["Authorization", "Content-Type"],
   max_age: 86400
 

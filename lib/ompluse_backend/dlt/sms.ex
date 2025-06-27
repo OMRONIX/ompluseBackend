@@ -17,6 +17,21 @@ defmodule OmpluseBackend.Dlt.Sms do
     field :message, :string
     field :phone_number, :string
     field :telco_id, :string
+    field :api_key, :string
+    field :channel, :string
+    field :telemar_id, :string
+    field :count, :string
+    field :flash, :boolean
+    field :multipart, :boolean
+    field :part_id, :string
+    field :is_primary, :boolean
+    field :part_info, :string
+    field :cost, :string
+    field :cost_unit, :string
+    field :encode, :string
+    field :company_id, :string
+    field :dlt_error_code, :string
+    field :porter_id, :string
 
     timestamps()
   end
@@ -35,7 +50,22 @@ defmodule OmpluseBackend.Dlt.Sms do
       :dlr_ts,
       :message,
       :phone_number,
-      :telco_id
+      :telco_id,
+      :api_key,
+      :channel,
+      :telemar_id,
+      :count,
+      :flash,
+      :multipart,
+      :part_id,
+      :is_primary,
+      :part_info,
+      :cost,
+      :cost_unit,
+      :encode,
+      :company_id,
+      :dlt_error_code,
+      :porter_id
     ])
     |> validate_required([
       :user_id,
@@ -49,5 +79,4 @@ defmodule OmpluseBackend.Dlt.Sms do
     |> validate_format(:sender_id, ~r/^[A-Z0-9]{6}$/, message: "must be a 6-character alphanumeric string")
     |> validate_format(:template_id, ~r/^\d{19}$/, message: "must be a 19-digit string")
   end
-
 end
