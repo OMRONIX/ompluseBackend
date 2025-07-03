@@ -3,26 +3,37 @@ defmodule OmpluseBackend.Auth do
   alias OmpluseBackend.{Repo, User, Company}
   alias Pbkdf2
 
+  # -- Registration Functions --
+
   def register_user(attrs) do
+    attrs = hash_password_if_present(attrs)
     %User{}
     |> User.changeset(attrs)
     |> Repo.insert()
   end
 
   def register_company(attrs) do
+    attrs = hash_password_if_present(attrs)
     %Company{}
     |> Company.changeset(attrs)
     |> Repo.insert()
   end
 
+  defp hash_password_if_present(attrs) do
+    case Map.get(attrs, "password") do
+      nil -> attrs
+      password -> Map.put(attrs, "password_hash", Pbkdf2.hash_pwd_salt(password))
+    end
+  end
+
+  # -- Login Functions --
+
   def login_user(user_name, password) do
     user = Repo.get_by(User, user_name: user_name)
 
     case user do
-      nil ->
-        {:error, :invalid_credentials}
-
-      user ->
+      nil -> {:error, :invalid_credentials}
+      %User{} ->
         if Pbkdf2.verify_pass(password, user.password_hash) do
           {:ok, user, generate_token(user)}
         else
@@ -35,10 +46,8 @@ defmodule OmpluseBackend.Auth do
     company = Repo.get_by(Company, company_name: company_name)
 
     case company do
-      nil ->
-        {:error, :invalid_credentials}
-
-      company ->
+      nil -> {:error, :invalid_credentials}
+      %Company{} ->
         if Pbkdf2.verify_pass(password, company.password_hash) do
           {:ok, company, generate_token(company)}
         else
@@ -47,71 +56,50 @@ defmodule OmpluseBackend.Auth do
     end
   end
 
-  def list_users_for_company(company_id) do
-    query = from u in User, where: u.company_id == ^company_id, select: [:id, :user_name, :user_data]
-    Repo.all(query)
-  end
-
-  def get_user(id) do
-    Repo.get(User, String.to_integer(id))
-  end
-
-  def get_company(id) do
-    Repo.get(Company, String.to_integer(id))
-  end
-
+  # -- Password Reset --
 
   def generate_password_reset_token(user_or_company) do
     token = :crypto.strong_rand_bytes(32) |> Base.url_encode64()
-    expires_at = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.add(3600, :second) # 1 hour expiry
+    expires_at = DateTime.utc_now() |> DateTime.add(3600, :second)
 
-    case user_or_company do
-      %User{} = user ->
-        changeset = Ecto.Changeset.change(user, reset_password_token: token, reset_password_expires_at: expires_at)
-        Repo.update(changeset)
+    changeset =
+      Ecto.Changeset.change(user_or_company,
+        reset_password_token: token,
+        reset_password_expires_at: expires_at
+      )
 
-      %Company{} = company ->
-        changeset = Ecto.Changeset.change(company, reset_password_token: token, reset_password_expires_at: expires_at)
-        Repo.update(changeset)
-    end
-    |> case do
+    case Repo.update(changeset) do
       {:ok, resource} -> {:ok, resource, token}
       {:error, changeset} -> {:error, changeset}
     end
   end
 
   def send_password_reset_email(user_or_company, token) do
-    # In a real implementation, this would send an email
-    # For this example, we'll return a mock success
-    identifier = case user_or_company do
-      %User{} -> user_or_company.user_name
-      %Company{} -> user_or_company.company_name
-    end
+    identifier =
+      case user_or_company do
+        %User{} -> user_or_company.user_name
+        %Company{} -> user_or_company.company_name
+      end
+
     IO.puts("Sending password reset email to #{identifier} with token: #{token}")
     {:ok, :email_sent}
   end
 
   def reset_password(user_name, token, new_password) do
-    resource = Repo.get_by(User, reset_password_token: token, user_name: user_name) ||
-               Repo.get_by(Company, reset_password_token: token, company_name: user_name)
+    resource =
+      Repo.get_by(User, reset_password_token: token, user_name: user_name) ||
+        Repo.get_by(Company, reset_password_token: token, company_name: user_name)
 
     with %{} = resource <- resource,
-         true <- !is_nil(resource.reset_password_expires_at) && DateTime.compare(resource.reset_password_expires_at, DateTime.utc_now()) == :gt do
+         true <- not is_nil(resource.reset_password_expires_at) and
+                 DateTime.compare(resource.reset_password_expires_at, DateTime.utc_now()) == :gt do
       changeset =
-        case resource do
-          %User{} ->
-            User.changeset(resource, %{
-              password_hash: Pbkdf2.hash_pwd_salt(new_password),
-              reset_password_token: nil,
-              reset_password_expires_at: nil
-            })
-          %Company{} ->
-            Company.changeset(resource, %{
-              password_hash: Pbkdf2.hash_pwd_salt(new_password),
-              reset_password_token: nil,
-              reset_password_expires_at: nil
-            })
-        end
+        resource
+        |> Ecto.Changeset.change(%{
+          password_hash: Pbkdf2.hash_pwd_salt(new_password),
+          reset_password_token: nil,
+          reset_password_expires_at: nil
+        })
 
       Repo.update(changeset)
     else
@@ -120,6 +108,15 @@ defmodule OmpluseBackend.Auth do
     end
   end
 
+  # -- Utility --
+
+  def list_users_for_company(company_id) do
+    from(u in User, where: u.company_id == ^company_id, select: [:id, :user_name, :user_data])
+    |> Repo.all()
+  end
+
+  def get_user(id), do: Repo.get(User, String.to_integer(id))
+  def get_company(id), do: Repo.get(Company, String.to_integer(id))
 
   defp generate_token(resource) do
     {:ok, token, _claims} = OmpluseBackendWeb.AuthGuardian.encode_and_sign(resource)

@@ -38,6 +38,15 @@ defmodule OmpluseBackendWeb.Router do
   end
 
   # Define API routes
+
+
+  scope "/api", OmpluseBackendWeb do
+    pipe_through [:api, :auth, :ensure_auth, :ensure_company]
+
+    get "/company_dashboard", CompanyDashboardController, :index
+  end
+
+
   scope "/api", OmpluseBackendWeb do
     pipe_through [:api, :auth]
 
@@ -110,5 +119,8 @@ defmodule OmpluseBackendWeb.Router do
     pipe_through [:api, :auth, :ensure_company]
 
     get "/users", CompanyController, :list_users
+    post "/users", CompanyController, :add_user
+    post "/users/:user_id/credits", CompanyController, :assign_credits
+    delete "/users/:user_id", CompanyController, :delete_user
   end
 end

@@ -1,7 +1,126 @@
 defmodule OmpluseBackend.DltManager do
   import Ecto.Query
-  alias OmpluseBackend.{Campaign, Repo, DltEntity, Sender, Template, Group, GroupContact}
+  alias OmpluseBackend.{Campaign, Repo, DltEntity, Sender, Template, Group, GroupContact, User, Company}
   alias OmpluseBackend.Dlt.Sms
+  alias Pbkdf2
+
+ # Company Dashboard Functions
+  def list_company_users(company_id) do
+    User
+    |> where([u], u.company_id == ^company_id)
+    |> Repo.all()
+    |> Enum.map(&user_dashboard_data/1)
+  end
+
+  def add_company_user(company, user_params) do
+    user_params = Map.merge(user_params, %{
+      "company_id" => to_string(company.id),
+      "password_hash" => Pbkdf2.hash_pwd_salt(user_params["password"])
+    })
+
+    OmpluseBackend.Auth.register_user(user_params)
+  end
+
+  def assign_credits(company_id, user_id, credits) when is_number(credits) and credits >= 0 do
+    with {:ok, user} <- get_company_user(company_id, user_id) do
+      user
+      |> User.changeset(%{credits: user.credits + credits})
+      |> Repo.update()
+    end
+  end
+
+ def delete_company_user(company_id, user_id) do
+    with {:ok, user} <- get_company_user(company_id, user_id) do
+      Repo.transaction(fn ->
+        # Subquery for entity_ids
+        entity_ids_query =
+          from e in DltEntity,
+            where: e.user_id == ^to_string(user_id),
+            select: e.id
+
+        # Delete associated records
+        Repo.delete_all(from e in DltEntity, where: e.user_id == ^to_string(user_id))
+        Repo.delete_all(from s in Sender, where: s.entity_id in subquery(entity_ids_query))
+        Repo.delete_all(from t in Template, where: t.entity_id in subquery(entity_ids_query))
+        Repo.delete_all(from c in Campaign, where: c.user_id == ^to_string(user_id))
+        Repo.delete_all(
+          from gc in GroupContact,
+            join: g in Group,
+            on: gc.group_id == g.id,
+            where: g.user_id == ^to_string(user_id)
+        )
+        Repo.delete_all(from g in Group, where: g.user_id == ^to_string(user_id))
+
+        # Delete the user
+        case Repo.delete(user) do
+          {:ok, user} -> {:ok, user}
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
+    end
+  end
+
+  defp get_company_user(company_id, user_id) do
+    case Repo.get_by(User, id: user_id, company_id: company_id) do
+      nil -> {:error, "User not found or not associated with company"}
+      user -> {:ok, user}
+    end
+  end
+
+  defp user_dashboard_data(user) do
+    user_id_str = to_string(user.id) # Cast to string for consistency
+
+    entity_ids_query =
+      from e in DltEntity,
+        where: e.user_id == ^user_id_str,
+        select: e.id
+
+    entities_count =
+      Repo.one(
+        from e in DltEntity,
+          where: e.user_id == ^user_id_str,
+          select: count("*")
+      ) || 0
+
+    senders_count =
+      Repo.one(
+        from s in Sender,
+          where: s.entity_id in subquery(entity_ids_query),
+          select: count("*")
+      ) || 0
+
+    templates_count =
+      Repo.one(
+        from t in Template,
+          where: t.entity_id in subquery(entity_ids_query),
+          select: count("*")
+      ) || 0
+
+    campaigns_count =
+      Repo.one(
+        from c in Campaign,
+          where: c.user_id == ^user_id_str,
+          select: count("*")
+      ) || 0
+
+    credits_used =
+      Repo.one(
+        from s in Sms,
+          where: s.user_id == ^user_id_str,
+          select: coalesce(sum(fragment("CAST(? AS FLOAT)", s.cost)), 0.0)
+      ) || 0.0
+
+    %{
+      id: user.id,
+      user_name: user.user_name,
+      credits: user.credits || 0.0,
+      entities_count: entities_count,
+      senders_count: senders_count,
+      templates_count: templates_count,
+      campaigns_count: campaigns_count,
+      credits_used: credits_used
+    }
+  end
 
   # DLT Entity
   def create_entity(user, attrs) do
@@ -31,17 +150,11 @@ defmodule OmpluseBackend.DltManager do
     end
   end
 
-def delete_entity(user_id, id) do
+  def delete_entity(user_id, id) do
     with {:ok, entity} <- get_entity(user_id, id) do
-      # Start a transaction to ensure atomicity
       Repo.transaction(fn ->
-        # Delete all associated Sender records
         Repo.delete_all(from s in Sender, where: s.entity_id == ^entity.id)
-
-        # Delete all associated Template records
         Repo.delete_all(from t in Template, where: t.entity_id == ^entity.id)
-
-        # Delete the entity
         case Repo.delete(entity) do
           {:ok, entity} -> {:ok, entity}
           {:error, changeset} -> Repo.rollback(changeset)
@@ -49,8 +162,9 @@ def delete_entity(user_id, id) do
       end)
     end
   end
+
   # Sender
-  def create_sender(user, attrs) do
+  def create_sender(_user, attrs) do
     %Sender{}
     |> Sender.changeset(attrs)
     |> Repo.insert()
@@ -91,7 +205,7 @@ def delete_entity(user_id, id) do
   end
 
   # Template
-  def create_template(user, attrs) do
+  def create_template(_user, attrs) do
     %Template{}
     |> Template.changeset(attrs)
     |> Repo.insert()
@@ -221,7 +335,14 @@ def delete_entity(user_id, id) do
 
   def delete_group(user, id) do
     with {:ok, group} <- get_group(user, id) do
-      Repo.delete(group)
+      Repo.transaction(fn ->
+        # Delete associated GroupContact records
+        Repo.delete_all(from gc in GroupContact, where: gc.group_id == ^group.id)
+        case Repo.delete(group) do
+          {:ok, group} -> {:ok, group}
+          {:error, changeset} -> Repo.rollback(changeset)
+        end
+      end)
     end
   end
 
@@ -258,7 +379,7 @@ def delete_entity(user_id, id) do
     end
   end
 
-  # SMS Processing (keeping existing implementation)
+  # SMS Processing
   def process_sms_submission(user, params) do
     sender_id = params["sender_id"]
     template_id = params["template_id"]
@@ -270,11 +391,22 @@ def delete_entity(user_id, id) do
     multipart = params["multipart"]
 
     with {:ok, sender} <- validate_sender(user.id, sender_id),
-         {:ok, template} <- validate_template(user.id, template_id) do
+         {:ok, template} <- validate_template(user.id, template_id),
+         {:ok, user} <- check_credits(user, length(fetch_contacts(contacts_input, group_ids, csv_file, user.id))) do
       contacts = fetch_contacts(contacts_input, group_ids, csv_file, user.id)
       create_sms_records(user, sender, template, message, contacts, flash, multipart)
     else
       {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp check_credits(user, contact_count) do
+    cost_per_message = 0.1 # Example cost per SMS
+    total_cost = contact_count * cost_per_message
+    if user.credits >= total_cost do
+      {:ok, user}
+    else
+      {:error, "Insufficient credits"}
     end
   end
 
@@ -352,6 +484,13 @@ def delete_entity(user_id, id) do
   defp create_sms_records(user, sender, template, message, contacts, flash, multipart) do
     gateway_id = nil
     telco_id = nil
+    cost_per_message = 0.1 # Example cost per SMS
+    total_cost = length(contacts) * cost_per_message
+
+    # Deduct credits
+    user
+    |> User.changeset(%{credits: user.credits - total_cost})
+    |> Repo.update!()
 
     sms_records =
       Enum.with_index(contacts, 1)
@@ -377,10 +516,10 @@ def delete_entity(user_id, id) do
           part_id: nil,
           is_primary: nil,
           part_info: nil,
-          cost: nil,
-          cost_unit: nil,
+          cost: to_string(cost_per_message),
+          cost_unit: "credits",
           encode: nil,
-          company_id: nil,
+          company_id: to_string(user.company_id),
           dlt_error_code: nil,
           porter_id: nil
         }

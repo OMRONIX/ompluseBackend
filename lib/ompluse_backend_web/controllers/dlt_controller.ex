@@ -524,7 +524,7 @@ defmodule OmpluseBackendWeb.DltController do
     end
   end
 
-  def show_group_contacts(conn, %{"group_id" => group_id, "id" => id}) do
+  def show_group_contacts(conn, %{"group_id" => _group_id, "id" => id}) do
     case Guardian.Plug.current_resource(conn) do
       nil ->
         conn |> put_status(:unauthorized) |> json(%{error: "Unauthorized: No user logged in"})
