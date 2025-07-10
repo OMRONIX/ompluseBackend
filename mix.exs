@@ -49,7 +49,9 @@ defmodule OmpluseBackend.MixProject do
       {:jason, "~> 1.4"},
       {:plug_cowboy, "~> 2.5"},
       {:cors_plug, "~> 2.0"},
-      {:csv, "~> 2.4"}
+      {:csv, "~> 2.4"},
+      {:oban, "~> 2.17"}
+
     ]
   end
 

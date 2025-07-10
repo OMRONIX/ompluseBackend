@@ -20,9 +20,24 @@ defmodule OmpluseBackendWeb.Router do
     plug :log_token
   end
 
+   pipeline :company_auth do
+    plug Plug.Pipeline,
+      module: OmpluseBackendWeb.AuthGuardian,
+      error_handler: OmpluseBackendWeb.AuthErrorHandler
+    plug Guardian.Plug.VerifyHeader, scheme: "Bearer"
+    plug Guardian.Plug.EnsureAuthenticated
+    plug Guardian.Plug.LoadResource
+    plug OmpluseBackendWeb.Plugs.EnsureCompany
+    plug :log_token
+  end
+
   # Ensure user is authenticated
   pipeline :ensure_auth do
     plug Plug.EnsureAuthenticated
+  end
+
+    pipeline :ensure_company do
+    plug OmpluseBackendWeb.Plugs.AuthPlug
   end
 
   # Ensure resource belongs to the company
@@ -41,7 +56,7 @@ defmodule OmpluseBackendWeb.Router do
 
 
   scope "/api", OmpluseBackendWeb do
-    pipe_through [:api, :auth, :ensure_auth, :ensure_company]
+    pipe_through [:api, :company_auth]
 
     get "/company_dashboard", CompanyDashboardController, :index
   end
@@ -66,7 +81,7 @@ defmodule OmpluseBackendWeb.Router do
 
   # Protected routes requiring authentication
   scope "/api/dlt", OmpluseBackendWeb do
-    pipe_through [:api, :auth, :ensure_auth]
+    pipe_through [:api, :auth]
 
     # DLT Entity Routes
     post "/entities", DltController, :create_entity

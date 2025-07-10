@@ -22,6 +22,12 @@ config :ompluse_backend, OmpluseBackendWeb.Endpoint,
   pubsub_server: OmpluseBackend.PubSub,
   live_view: [signing_salt: "eZheO1lp"]
 
+  config :ompluse_backend, Oban,
+  repo: OmpluseBackend.Repo,
+  queues: [sms: 5],
+  plugins: [Oban.Plugins.Pruner]
+
+
 
   config :ompluse_backend, OmpluseBackendWeb.AuthGuardian,
   issuer: "ompluse_backend",

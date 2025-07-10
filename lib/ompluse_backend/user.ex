@@ -2,29 +2,23 @@ defmodule OmpluseBackend.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @derive {Jason.Encoder, only: [:id, :user_name, :credits, :credits_used, :company_id, :inserted_at, :updated_at]}
   schema "users" do
-    field :user_data, :map
     field :user_name, :string
     field :password_hash, :string
+    field :user_data, :map
     field :credits, :float, default: 0.0
     field :credits_used, :float, default: 0.0
     field :reset_password_token, :string
     field :reset_password_expires_at, :utc_datetime
     belongs_to :company, OmpluseBackend.Company
-
-    timestamps(type: :utc_datetime)
+    timestamps()
   end
 
-  @doc false
   def changeset(user, attrs) do
     user
-    |> cast(attrs, [:user_name, :password_hash, :user_data, :company_id, :reset_password_token,:credits, :reset_password_expires_at])
-    |> validate_required([:user_name, :password_hash, :company_id])
+    |> cast(attrs, [:user_name, :password_hash, :user_data, :credits, :credits_used, :reset_password_token, :reset_password_expires_at, :company_id])
+    |> validate_required([:user_name, :company_id])
     |> unique_constraint(:user_name)
-    |> unique_constraint(:email)
-    |> validate_length(:user_name, min: 3, max: 20)
-    |> validate_length(:password_hash, min: 6)
-    |> validate_format(:user_name, ~r/^[a-zA-Z0-9_]+$/, message: "can only contain letters, numbers, and underscores")
-    |> validate_number(:credits, greater_than_or_equal_to: 0.0, message: "credits must be non-negative")
   end
 end

@@ -67,7 +67,7 @@ defmodule OmpluseBackend.DltManager do
     end
   end
 
-  defp user_dashboard_data(user) do
+  def user_dashboard_data(user) do
     user_id_str = to_string(user.id) # Cast to string for consistency
 
     entity_ids_query =
@@ -401,7 +401,7 @@ defmodule OmpluseBackend.DltManager do
   end
 
   defp check_credits(user, contact_count) do
-    cost_per_message = 0.1 # Example cost per SMS
+    cost_per_message = 1.0 # Example cost per SMS
     total_cost = contact_count * cost_per_message
     if user.credits >= total_cost do
       {:ok, user}
@@ -493,41 +493,50 @@ defmodule OmpluseBackend.DltManager do
     |> Repo.update!()
 
     sms_records =
-      Enum.with_index(contacts, 1)
-      |> Enum.map(fn {phone, _index} ->
-        sms_params = %{
-          user_id: to_string(user.id),
-          seq_id: nil,
-          entity_id: to_string(sender.entity_id),
-          sender_id: sender.sender_id,
-          template_id: template.template_id,
-          gateway_id: gateway_id,
-          dlr_status: "PENDING",
-          submit_ts: DateTime.utc_now(),
-          message: message,
-          phone_number: phone,
-          telco_id: telco_id,
-          api_key: nil,
-          channel: nil,
-          telemar_id: nil,
-          count: nil,
-          flash: flash,
-          multipart: multipart,
-          part_id: nil,
-          is_primary: nil,
-          part_info: nil,
-          cost: to_string(cost_per_message),
-          cost_unit: "credits",
-          encode: nil,
-          company_id: to_string(user.company_id),
-          dlt_error_code: nil,
-          porter_id: nil
-        }
+  Enum.with_index(contacts, 1)
+  |> Enum.map(fn {phone, _index} ->
+    sms_params = %{
+      user_id: to_string(user.id),
+      seq_id: nil,
+      entity_id: to_string(sender.entity_id),
+      sender_id: sender.sender_id,
+      template_id: template.template_id,
+      gateway_id: gateway_id,
+      dlr_status: "PENDING",
+      submit_ts: DateTime.utc_now(),
+      message: message,
+      phone_number: phone,
+      telco_id: telco_id,
+      api_key: nil,
+      channel: nil,
+      telemar_id: nil,
+      count: nil,
+      flash: flash,
+      multipart: multipart,
+      part_id: nil,
+      is_primary: nil,
+      part_info: nil,
+      cost: to_string(cost_per_message),
+      cost_unit: "credits",
+      encode: nil,
+      company_id: to_string(user.company_id),
+      dlt_error_code: nil,
+      porter_id: nil
+    }
 
-        %Sms{}
-        |> Sms.changeset(sms_params)
-        |> Repo.insert!()
-      end)
+    sms_record =
+      %Sms{}
+      |> Sms.changeset(sms_params)
+      |> Repo.insert!()
+
+    # Queue the job after insert
+    %{sms_id: sms_record.id}
+    |> OmpluseBackend.Workers.SmsWorker.new()
+    |> Oban.insert()
+
+    sms_record
+  end)
+
 
     {:ok, sms_records}
   end

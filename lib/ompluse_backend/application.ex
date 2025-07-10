@@ -14,6 +14,8 @@ defmodule OmpluseBackend.Application do
       {Phoenix.PubSub, name: OmpluseBackend.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: OmpluseBackend.Finch},
+      {Oban, Application.fetch_env!(:ompluse_backend, Oban)},
+
       # Start a worker by calling: OmpluseBackend.Worker.start_link(arg)
       # {OmpluseBackend.Worker, arg},
       # Start to serve requests, typically the last entry

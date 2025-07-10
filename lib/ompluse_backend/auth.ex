@@ -60,7 +60,8 @@ defmodule OmpluseBackend.Auth do
 
   def generate_password_reset_token(user_or_company) do
     token = :crypto.strong_rand_bytes(32) |> Base.url_encode64()
-    expires_at = DateTime.utc_now() |> DateTime.add(3600, :second)
+    expires_at = DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+
 
     changeset =
       Ecto.Changeset.change(user_or_company,

@@ -13,7 +13,7 @@ defmodule OmpluseBackendWeb.Plugs.AuthPlug do
         send_unauthorized(conn)
 
       {%User{}, nil} ->
-        send_forbidden(conn, "Only companies can access this resource")
+        conn # Allow user access for user-specific endpoints
 
       {%User{company_id: user_company_id}, company_id} ->
         if user_company_id == String.to_integer(company_id) do
@@ -22,8 +22,8 @@ defmodule OmpluseBackendWeb.Plugs.AuthPlug do
           send_forbidden(conn, "User does not belong to the specified company")
         end
 
-      {%Company{id: company_id_from_token}, nil} ->
-        conn
+      {%Company{id: _company_id_from_token}, nil} ->
+        conn # Allow company access for company-specific endpoints
 
       {%Company{id: company_id_from_token}, company_id} ->
         if company_id_from_token == String.to_integer(company_id) do
